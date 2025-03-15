@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Penalty Shot Tracker</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            text-align: center;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: white;
+            padding: 10px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            max-width: 90%;
+            margin: auto;
+            backdrop-filter: blur(10px);
+        }
+
+        .team input {
+            width: 80%;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            border: none;
+            text-align: center;
+        }
+
+        .button {
+            padding: 12px;
+            margin: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: 0.3s;
+            background: #007bff;
+            color: white;
+            width: 90%;
+        }
+
+        .tracker {
+            display: none;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 15px;
+            }
+            .button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Landing Page for Team Names -->
+    <div class="container" id="teamSetup">
+        <h1>⚽ Enter Team Names</h1>
+        <input type="text" id="teamAInput" placeholder="Enter Team A Name">
+        <input type="text" id="teamBInput" placeholder="Enter Team B Name">
+        <button class="button" onclick="startTracking()">Start Tracking</button>
+    </div>
+
+    <!-- Penalty Tracker (Hidden Initially) -->
+    <div class="container tracker" id="penaltyTracker">
+        <h1>⚽ Penalty Shot Tracker</h1>
+
+        <div class="team">
+            <h2 id="teamATitle"></h2>
+            <div class="score">Score: <span id="scoreA">0</span></div>
+            <button class="button" style="background:#28a745" onclick="recordShot('A', true)">Goal</button>
+            <button class="button" style="background:#dc3545" onclick="recordShot('A', false)">Miss</button>
+            <button class="button" style="background:#ff9800" onclick="undoShot('A')">Undo</button>
+            <ul id="shotListA"></ul>
+        </div>
+
+        <div class="team">
+            <h2 id="teamBTitle"></h2>
+            <div class="score">Score: <span id="scoreB">0</span></div>
+            <button class="button" style="background:#28a745" onclick="recordShot('B', true)">Goal</button>
+            <button class="button" style="background:#dc3545" onclick="recordShot('B', false)">Miss</button>
+            <button class="button" style="background:#ff9800" onclick="undoShot('B')">Undo</button>
+            <ul id="shotListB"></ul>
+        </div>
+
+        <button class="button" onclick="generatePDF()">Download PDF</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script>
+        let teamA_shots = [];
+        let teamB_shots = [];
+
+        function startTracking() {
+            let teamA = document.getElementById("teamAInput").value.trim();
+            let teamB = document.getElementById("teamBInput").value.trim();
+
+            if (teamA === "" || teamB === "") {
+                alert("Please enter names for both teams!");
+                return;
+            }
+
+            // Update team names
+            document.getElementById("teamATitle").textContent = teamA;
+            document.getElementById("teamBTitle").textContent = teamB;
+
+            // Hide team input section, show tracker
+            document.getElementById("teamSetup").style.display = "none";
+            document.getElementById("penaltyTracker").style.display = "block";
+        }
+
+        function recordShot(team, isGoal) {
+            let shot = { number: (team === 'A' ? teamA_shots.length : teamB_shots.length) + 1, status: isGoal ? "Goal" : "Missed" };
+
+            if (team === 'A') {
+                teamA_shots.push(shot);
+                updateShotList('A', teamA_shots);
+                updateScore('A');
+            } else {
+                teamB_shots.push(shot);
+                updateShotList('B', teamB_shots);
+                updateScore('B');
+            }
+        }
+
+        function undoShot(team) {
+            if (confirm("Are you sure you want to undo the last shot?")) {
+                if (team === 'A' && teamA_shots.length > 0) {
+                    teamA_shots.pop();
+                    updateShotList('A', teamA_shots);
+                    updateScore('A');
+                } else if (team === 'B' && teamB_shots.length > 0) {
+                    teamB_shots.pop();
+                    updateShotList('B', teamB_shots);
+                    updateScore('B');
+                }
+            }
+        }
+
+        function updateShotList(team, shots) {
+            let shotList = document.getElementById(team === 'A' ? "shotListA" : "shotListB");
+            shotList.innerHTML = "";
+            shots.forEach(shot => {
+                let li = document.createElement("li");
+                li.textContent = `Shot ${shot.number}: ${shot.status}`;
+                shotList.appendChild(li);
+            });
+        }
+
+        function updateScore(team) {
+            let score = (team === 'A' ? teamA_shots : teamB_shots).filter(shot => shot.status === "Goal").length;
+            document.getElementById(team === 'A' ? "scoreA" : "scoreB").textContent = score;
+        }
+
+        function generatePDF() {
+            const { jsPDF } = window.jspdf;
+            let doc = new jsPDF();
+
+            let teamA = document.getElementById("teamATitle").textContent;
+            let teamB = document.getElementById("teamBTitle").textContent;
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(20);
+            doc.text("⚽ Penalty Shot Report", 20, 20);
+
+            let y = 40;
+
+            [["A", teamA], ["B", teamB]].forEach(([team, teamName]) => {
+                let shots = team === 'A' ? teamA_shots : teamB_shots;
+                let score = shots.filter(shot => shot.status === "Goal").length;
+
+                doc.setFontSize(14);
+                doc.setTextColor(0, 0, 255);
+                doc.text(teamName, 20, y);
+
+                doc.setFontSize(12);
+                doc.setTextColor(0, 0, 0);
+                doc.text(`Total Goals: ${score}`, 150, y);
+
+                y += 10;
+
+                shots.forEach((shot, index) => {
+                    doc.text(`${index + 1}. ${shot.status}`, 20, y);
+                    y += 10;
+                });
+
+                y += 10;
+            });
+
+            doc.save("Penalty_Shot_Report.pdf");
+        }
+    </script>
+
+</body>
+</html>
